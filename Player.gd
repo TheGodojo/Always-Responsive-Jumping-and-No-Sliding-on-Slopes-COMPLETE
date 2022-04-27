@@ -1,10 +1,12 @@
 extends KinematicBody
 
+var speed = 10
+
 var vertical_velocity = 0
 var gravity = -9.81*2
 var jump_strength = 10
-
-var speed = 10
+var ground = []
+var just_jumped = false
 
 var look_sensitivity = 0.5
 var vertical_look_limit = 90
@@ -20,12 +22,15 @@ func _physics_process(delta):
 	if Input.is_action_pressed("move_left"): direction -= global_transform.basis.x
 	if Input.is_action_pressed("move_right"): direction += global_transform.basis.x
 	
-	if is_on_floor(): 
-		vertical_velocity = 0
-		if Input.is_action_just_pressed("jump"): vertical_velocity = jump_strength
-	else: vertical_velocity += -gravity * delta
+	if ground.size() and vertical_velocity<0: vertical_velocity = 0	
+	else: vertical_velocity += gravity * delta
 	
-	var velocity = direction.normalized()*speed + Vector3.UP * vertical_velocity
+	if can_jump():
+		if Input.is_action_just_pressed("jump"): 
+			vertical_velocity = jump_strength
+			just_jumped = true
+			
+	var velocity = direction.normalized()*speed + Vector3.UP*vertical_velocity
 	move_and_slide(velocity,Vector3.UP)
 	
 	
@@ -39,3 +44,16 @@ func _input(event):
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE else Input.MOUSE_MODE_VISIBLE)
 
 
+func can_jump():
+	return ground.size() or not ($JumpAllowance.is_stopped() or just_jumped)
+
+
+func _on_GroundCheck_body_entered(body):
+	if not body == self:
+		ground.append(body)
+		just_jumped = false
+
+
+func _on_GroundCheck_body_exited(body):
+	ground.remove(ground.find(body))
+	if not ground.size(): $JumpAllowance.start()
